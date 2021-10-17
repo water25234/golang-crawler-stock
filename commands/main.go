@@ -34,6 +34,15 @@ func main() {
 	// companyImportantMessage()
 }
 
+type financialStatementJson struct {
+	Name             string
+	Value            string
+	Percentage       string
+	CountSpace       int
+	OriginIndex      int
+	ParentGroupIndex int
+}
+
 func financialStatementReaderHtml() {
 	var res io.Reader
 	res, _ = os.Open("commands/financialStatementHtml.html")
@@ -43,19 +52,58 @@ func financialStatementReaderHtml() {
 		log.Fatal(err)
 	}
 
+	var countSpace int
+	var parentIndex int
+	financialStatementList := []*financialStatementJson{}
 	doc.Find("table.hasBorder tr").Each(func(i int, docSecondary *goquery.Selection) {
-		if i < 5 {
+		if i < 4 {
 			return
 		}
 
+		if countSpace == 0 {
+			parentIndex = i - 1 // record on the previous index
+		}
+
+		countSpace = 0
+		financialStatement := &financialStatementJson{}
+		financialStatement.OriginIndex = i
 		docSecondary.Find("td").Each(func(j int, s *goquery.Selection) {
 
-			if j == 0 || j == 1 || j == 2 {
-				value := strings.Trim(s.Text(), "	") // Remove tab
-				fmt.Println(strings.Trim(value, " "))
+			value := s.Text()
+
+			if len(value) == 0 {
+				return
+			}
+
+			// 會計科目名稱
+			if j == 0 {
+				for _, v := range value {
+					// 12288 is space from ASCII
+					if v != 12288 {
+						break
+					}
+					countSpace++
+				}
+
+				if countSpace > 0 {
+					financialStatement.ParentGroupIndex = parentIndex
+				}
+
+				financialStatement.Name = strings.TrimSpace(value)
+				financialStatement.CountSpace = countSpace
+			} else if j == 1 {
+				financialStatement.Value = strings.TrimSpace(value)
+			} else if j == 2 {
+				financialStatement.Percentage = strings.TrimSpace(value)
 			}
 		})
+
+		financialStatementList = append(financialStatementList, financialStatement)
 	})
+
+	for _, fs := range financialStatementList {
+		fmt.Println(fs)
+	}
 }
 
 // 綜合損益表
