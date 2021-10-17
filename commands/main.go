@@ -17,6 +17,11 @@ import (
 
 func main() {
 
+	// fmt.Println(strings.Contains("seafood", "foo"))
+	// fmt.Println(strings.Contains("seafood", "bar"))
+	// fmt.Println(strings.Contains("seafood", ""))
+	// fmt.Println(strings.Contains("", ""))
+
 	financialStatementReaderHtml()
 
 	// time.Sleep(5)
@@ -34,6 +39,26 @@ func main() {
 	// companyImportantMessage()
 }
 
+type financialStatementCalculate struct {
+	OperatingExpenses                   float64 // 營業費用
+	Tax                                 float64 // 所得稅費用（利益）
+	PreTaxIncome                        float64 // 稅前淨利（淨損）
+	IncomeFromContinuingOperations      float64 // 繼續營業單位本期淨利（淨損）
+	IncomeAfterTaxes                    float64 // 本期淨利（淨損）
+	TotalConsolidatedProfitForThePeriod float64 // 本期綜合損益總額
+	Revenue                             float64 // 營業收入
+	CostOfGoodsSold                     float64 // 營業成本
+	RealizedGain                        float64 // 已實現銷貨（損）益
+	Othnoe                              float64 // 其他收益及費損淨額
+	OperatingIncome                     float64 // 營業利益（損失）
+	TotalNonoperatingIncomeAndExpense   float64 // 營業外收入及支出
+	OtherComprehensiveIncome            float64 // 其他綜合損益（淨額）
+	EquityAttributableToOwnersOfParent  float64 // 綜合損益總額歸屬於母公司業主
+	NoncontrollingInterests             float64 // 綜合損益總額歸屬於非控制權益
+	Eps                                 float64 // 基本每股盈餘（元）
+	GrossProfit                         float64 // 營業毛利（毛損）
+}
+
 type financialStatementJson struct {
 	Name             string
 	Value            string
@@ -45,7 +70,7 @@ type financialStatementJson struct {
 
 func financialStatementReaderHtml() {
 	var res io.Reader
-	res, _ = os.Open("commands/financialStatementHtml.html")
+	res, _ = os.Open("commands/financialStatementHtml-2330.html")
 
 	doc, err := goquery.NewDocumentFromReader(res)
 	if err != nil {
@@ -92,7 +117,7 @@ func financialStatementReaderHtml() {
 				financialStatement.Name = strings.TrimSpace(value)
 				financialStatement.CountSpace = countSpace
 			} else if j == 1 {
-				financialStatement.Value = strings.TrimSpace(value)
+				financialStatement.Value = strings.Replace(strings.TrimSpace(value), ",", "", -1)
 			} else if j == 2 {
 				financialStatement.Percentage = strings.TrimSpace(value)
 			}
@@ -101,9 +126,20 @@ func financialStatementReaderHtml() {
 		financialStatementList = append(financialStatementList, financialStatement)
 	})
 
+	financialStatementCal := &financialStatementCalculate{}
 	for _, fs := range financialStatementList {
-		fmt.Println(fs)
+
+		if strings.Contains(fs.Name, "所得稅費用") {
+			if fsValue, err := strconv.ParseFloat(fs.Value, 32); err == nil {
+				financialStatementCal.Tax = fsValue
+
+				// fmt.Println(fmt.Sprintf("%f", fsValue))
+				// fmt.Printf("%f\n", fsValue)
+			}
+		}
 	}
+
+	fmt.Println(financialStatementCal)
 }
 
 // 綜合損益表
