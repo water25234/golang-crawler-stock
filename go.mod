@@ -11,5 +11,6 @@ require (
 
 require (
 	github.com/andybalholm/cascadia v1.1.0 // indirect
+	github.com/shopspring/decimal v1.3.0 // indirect
 	golang.org/x/net v0.0.0-20201224014010-6772e930b67b // indirect
 )

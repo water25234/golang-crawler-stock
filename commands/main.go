@@ -12,15 +12,43 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/axgle/mahonia"
+	"github.com/shopspring/decimal"
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func main() {
 
-	// fmt.Println(strings.Contains("seafood", "foo"))
-	// fmt.Println(strings.Contains("seafood", "bar"))
-	// fmt.Println(strings.Contains("seafood", ""))
-	// fmt.Println(strings.Contains("", ""))
+	var f1 float32 = 9.90
+
+	fmt.Println(f1 * 100)
+
+	var f2 float64 = 9.90
+
+	fmt.Println(f2 * 100)
+
+	price, err := decimal.NewFromString("136.02")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("price:", price)
+
+	quantity := decimal.NewFromInt(3)
+	fmt.Println("quantity:", quantity)
+
+	fee, _ := decimal.NewFromString(".035")
+	taxRate, _ := decimal.NewFromString(".08875")
+
+	subtotal := price.Mul(quantity)
+
+	preTax := subtotal.Mul(fee.Add(decimal.NewFromFloat(1)))
+
+	total := preTax.Mul(taxRate.Add(decimal.NewFromFloat(1)))
+
+	fmt.Println("Subtotal:", subtotal)                      // Subtotal: 408.06
+	fmt.Println("Pre-tax:", preTax)                         // Pre-tax: 422.3421
+	fmt.Println("Taxes:", total.Sub(preTax))                // Taxes: 37.482861375
+	fmt.Println("Total:", total)                            // Total: 459.824961375
+	fmt.Println("Tax rate:", total.Sub(preTax).Div(preTax)) // Tax rate: 0.08875
 
 	financialStatementReaderHtml()
 
@@ -39,24 +67,33 @@ func main() {
 	// companyImportantMessage()
 }
 
+// 預估ROE x NAV 淨值 = 預估EPS
+// 預估 EPX x 合理本益比 = 合理價
+
 type financialStatementCalculate struct {
-	OperatingExpenses                   float64 // 營業費用
-	Tax                                 float64 // 所得稅費用（利益）
-	PreTaxIncome                        float64 // 稅前淨利（淨損）
-	IncomeFromContinuingOperations      float64 // 繼續營業單位本期淨利（淨損）
-	IncomeAfterTaxes                    float64 // 本期淨利（淨損）
-	TotalConsolidatedProfitForThePeriod float64 // 本期綜合損益總額
-	Revenue                             float64 // 營業收入
-	CostOfGoodsSold                     float64 // 營業成本
-	RealizedGain                        float64 // 已實現銷貨（損）益
-	Othnoe                              float64 // 其他收益及費損淨額
-	OperatingIncome                     float64 // 營業利益（損失）
-	TotalNonoperatingIncomeAndExpense   float64 // 營業外收入及支出
-	OtherComprehensiveIncome            float64 // 其他綜合損益（淨額）
-	EquityAttributableToOwnersOfParent  float64 // 綜合損益總額歸屬於母公司業主
-	NoncontrollingInterests             float64 // 綜合損益總額歸屬於非控制權益
-	Eps                                 float64 // 基本每股盈餘（元）
-	GrossProfit                         float64 // 營業毛利（毛損）
+	Revenue                                      string // 營業收入 or 銀行 - 淨收益
+	OperatingExpenses                            string // 營業費用
+	CostOfGoodsSold                              string // 營業成本
+	GrossProfit                                  string // 營業毛利（毛損）
+	OperatingIncome                              string // 營業利益（損失）
+	TotalNonoperatingIncomeAndExpense            string // 營業外收入及支出
+	PreTaxIncome                                 string // 稅前淨利（淨損） or 銀行 - 繼續營業單位稅前損益
+	Tax                                          string // 所得稅費用（利益）
+	IncomeFromContinuingOperations               string // 繼續營業單位本期淨利（淨損）
+	IncomeAfterTax                               string // 本期淨利（淨損）
+	TotalConsolidatedProfitForThePeriod          string // 本期綜合損益總額
+	UnrealizedGain                               string // 未實現銷貨（損）益
+	RealizedGain                                 string // 已實現銷貨（損）益
+	Othnoe                                       string // 其他收益及費損淨額
+	OtherComprehensiveIncome                     string // 其他綜合損益（淨額）
+	EquityAttributableToOwnersOfParent           string // 綜合損益總額歸屬於母公司業主 or 銀行 - 淨利（淨損）歸屬於母公司業主
+	NoncontrollingInterests                      string // 綜合損益總額歸屬於非控制權益 or 銀行 - 淨利（淨損）歸屬於非控制權益
+	Eps                                          string // 基本每股盈餘（元）
+	NetInterestIncome                            string // 銀行 - 利息淨收益
+	BadDebts                                     string // 銀行 - 呆帳費用、承諾及保證責任準備提存
+	OtherComprehensiveIncomeAfterTaxThePeriod    string // 銀行 - 本期其他綜合損益（稅後淨額）
+	NetNonInterestIncome                         string // 銀行 - 利息以外淨收益
+	NetChangeInProvisionsForInsuranceLiabilities string // 銀行 - 保險負債準備淨變動
 }
 
 type financialStatementJson struct {
@@ -130,12 +167,14 @@ func financialStatementReaderHtml() {
 	for _, fs := range financialStatementList {
 
 		if strings.Contains(fs.Name, "所得稅費用") {
-			if fsValue, err := strconv.ParseFloat(fs.Value, 32); err == nil {
-				financialStatementCal.Tax = fsValue
+			financialStatementCal.Tax = fs.Value
+			// if fsValue, err := strconv.ParseFloat(fs.Value, 64); err == nil {
+			// 	financialStatementCal.Tax = fsValue
 
-				// fmt.Println(fmt.Sprintf("%f", fsValue))
-				// fmt.Printf("%f\n", fsValue)
-			}
+			// 	// fmt.Println(fmt.Sprintf("%f", fsValue))
+			// 	// fmt.Printf("%f\n", fsValue)
+			// }
+			// financialStatementCal.Tax = float32(fs.Value)
 		}
 	}
 
